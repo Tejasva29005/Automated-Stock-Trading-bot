@@ -1,0 +1,9 @@
+.env
+config.py
+credentials.json
+portfolio_state.json
+trader.log
+last_etf_list.txt
+etf_bought_state.pkl
+etf_bought_state.txt
+*.pkl
