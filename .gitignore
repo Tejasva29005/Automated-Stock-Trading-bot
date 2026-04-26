@@ -7,3 +7,5 @@ last_etf_list.txt
 etf_bought_state.pkl
 etf_bought_state.txt
 *.pkl
+__pycache__/
+scratch/

@@ -16,6 +16,7 @@ import json
 import logging
 import math
 import os
+from typing import Any
 import asyncio
 from datetime import datetime, timedelta
 from typing import Any
@@ -23,10 +24,11 @@ from typing import Any
 import uvicorn
 import upstox_client
 import gspread
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from mcp.types import Tool, TextContent
+from fastapi.responses import JSONResponse
 from oauth2client.service_account import ServiceAccountCredentials
 from starlette.routing import Route
 
@@ -625,6 +627,26 @@ async def root():
             "execute_sell",
         ],
     }
+
+
+@app.post("/tool/{tool_name}")
+async def rest_tool_endpoint(tool_name: str, request: Request):
+    """
+    Plain REST bridge: POST /tool/{tool_name}  body=JSON dict of args
+    Returns the tool result as JSON so mcp_client can call tools over HTTP.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    results = await call_tool(tool_name, body)
+    # results is list[TextContent]; return the first item's text parsed as JSON
+    if results:
+        try:
+            return JSONResponse(content=json.loads(results[0].text))
+        except Exception:
+            return JSONResponse(content={"text": results[0].text})
+    return JSONResponse(content={})
 
 
 @app.get("/sse")

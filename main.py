@@ -17,6 +17,11 @@ import sys
 import json
 from datetime import datetime
 
+# Fix Windows console UTF-8 encoding
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 import schedule
 import time
 
