@@ -6,6 +6,7 @@ import upstox_client
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
+import config as _config
 
 logger = logging.getLogger(__name__)
 def load_state(path: str) -> dict:
@@ -217,6 +218,53 @@ class AlgoTrader:
                     save_state(state, self.state_path)
                     logger.info(f"  → Re-entered {code}: avg_price=₹{avg_price:.2f}  "
                                 f"total_qty={total_qty}")
+
+    def check_hard_stop_loss(self) -> list[str]:
+        """
+        Safety net that runs every poll cycle, independent of Claude.
+        Force-sells any position that has dropped more than HARD_STOP_LOSS_PCT
+        from the average buy price.
+
+        Returns a list of instrument tokens that were force-sold.
+        """
+        state = load_state(self.state_path)
+        if not state:
+            return []
+
+        stop_loss_pct = getattr(self.config, "HARD_STOP_LOSS_PCT", 0.03)
+        force_sold: list[str] = []
+
+        for code, info in list(state.items()):
+            buy_price = info.get("buy_price")
+            quantity = info.get("quantity", 1)
+            if not buy_price:
+                continue
+
+            live_price = self.get_live_price(code)
+            if live_price is None:
+                continue
+
+            drop_pct = (buy_price - live_price) / buy_price
+            if drop_pct >= stop_loss_pct:
+                logger.warning(
+                    f"  ⛔ HARD STOP-LOSS: {code} dropped {drop_pct*100:.2f}% "
+                    f"(buy=₹{buy_price:.2f}  live=₹{live_price:.2f}) — force selling"
+                )
+                success = self.place_sell_order(code, quantity)
+                if success:
+                    del state[code]
+                    save_state(state, self.state_path)
+                    force_sold.append(code)
+                    logger.warning(f"  ⛔ Force-sold {code} at ₹{live_price:.2f}")
+
+        return force_sold
+
+    def get_all_live_prices(self, codes: list[str]) -> dict[str, float | None]:
+        """Batch-fetch live prices for a list of instrument tokens."""
+        results = {}
+        for code in codes:
+            results[code] = self.get_live_price(code)
+        return results
     def _execute_buy(
         self,
         top_n_codes: list,
