@@ -261,7 +261,8 @@ class MCPClient:
                             }
                         )
 
-                messages.append({"role": "user", "content": tool_results})
+                if tool_results:
+                    messages.append({"role": "user", "content": tool_results})
                 continue  # next iteration: Claude processes tool results
 
             # ── Claude has finished (stop_reason == "end_turn") ───────────────

@@ -41,11 +41,15 @@ class AlgoTrader:
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/drive",
         ]
-        creds = ServiceAccountCredentials.from_json_keyfile_name(
-            config.GOOGLE_CREDENTIALS_PATH, scope
-        )
-        gc = gspread.authorize(creds)
-        self.worksheet = gc.open_by_key(config.SPREADSHEET_ID).get_worksheet(0)
+        try:
+            creds = ServiceAccountCredentials.from_json_keyfile_name(
+                config.GOOGLE_CREDENTIALS_PATH, scope
+            )
+            gc = gspread.authorize(creds)
+            self.worksheet = gc.open_by_key(config.SPREADSHEET_ID).get_worksheet(0)
+        except Exception as e:
+            logger.warning(f"Google Sheets connection failed: {e}. Will run without sheet data.")
+            self.worksheet = None
         cfg = upstox_client.Configuration()
         cfg.access_token = config.UPSTOX_ACCESS_TOKEN
         api_client = upstox_client.ApiClient(cfg)
@@ -60,6 +64,8 @@ class AlgoTrader:
         self.top_n            = config.TOP_N               
 
     def fetch_sheet_data(self) -> tuple[list, list]:
+        if not self.worksheet:
+            return [], []
         etf_codes = self.worksheet.col_values(1)[1:31]
         prices_raw = self.worksheet.col_values(3)[1:31]
         prices = []
